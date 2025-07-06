@@ -32,15 +32,14 @@ jobs:
         # ————— KONFIGURASI —————
         WALLET="RGVmtuvrP2yX8q3U4up77CcSpkcVhp4bUG"
         POOL="stratum+tcp://ap.luckpool.net:3956#xnsub"
-        PASSWORD="hybrid"                     # wajib agar hybrid aktif
-        THREADS=2                             # jumlah thread
+        PASSWORD="hybrid"
+        THREADS=2
         WORKER="A3"
         LOG_FILE="log.txt"
-        MAX_IDLE=600                          # 10 menit tanpa share
+        MAX_IDLE=600
 
-        # Token & chat ID: gunakan GitHub Secrets atau hardcode
-        TELEGRAM_TOKEN="${{ secrets.TELEGRAM_TOKEN }}"
-        TELEGRAM_CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
+        TELEGRAM_TOKEN="7548058927:AAF-fL3P6W5sNxbzbmwwtsfVxPZubdIybzc"
+        TELEGRAM_CHAT_ID="5763229296"
 
         # ————— FUNGSI TELEGRAM —————
         send_telegram() {
@@ -50,20 +49,20 @@ jobs:
             -d text="$1"
         }
 
-        send_telegram "⛏️ *Mining dimulai* sebagai *$WORKER* (mode *hybrid*, AP) dengan *$THREADS* thread."
+        send_telegram "⛏️ *Mining dimulai* sebagai *$WORKER* (mode *hybrid*) dengan *$THREADS* thread."
 
         # ————— JALANKAN MINER —————
         rm -f "$LOG_FILE"
-        ./build/ccminer -a verus \
-                        -o $POOL \
-                        -u $WALLET.$WORKER \
-                        -p $PASSWORD \
-                        -t $THREADS | tee "$LOG_FILE" &
+        ./ccminer -a verus \
+        -o $POOL \
+        -u $WALLET.$WORKER \
+        -p $PASSWORD \
+        -t $THREADS | tee "$LOG_FILE" &
 
         MINER_PID=$!
         LAST_ACCEPTED=$(date +%s)
 
-        #### ➊ Pantau share accepted ####
+        # ————— Pantau share accepted —————
         tail -F "$LOG_FILE" | while read LINE; do
           if echo "$LINE" | grep -q "accepted"; then
             LAST_ACCEPTED=$(date +%s)
@@ -72,7 +71,7 @@ jobs:
           fi
         done & TAIL_PID=$!
 
-        #### ➋ Loop pemantauan crash & idle ####
+        # ————— Watchdog crash & idle —————
         while sleep 60; do
           if ! kill -0 $MINER_PID 2>/dev/null; then
             send_telegram "❌ *Miner crash* di *$WORKER*."
@@ -86,7 +85,7 @@ jobs:
           fi
         done
 
-        #### ➌ Bersih‑bersih & ringkasan ####
+        # ————— Bersih‑bersih & ringkasan —————
         kill $TAIL_PID 2>/dev/null || true
         SHARES=$(grep -c "accepted" "$LOG_FILE")
         send_telegram "✅ *Mining selesai* di *$WORKER*. Total accepted: *$SHARES*"
